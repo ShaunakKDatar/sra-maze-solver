@@ -124,7 +124,7 @@ void calculate_error()
     }
 }
 
-bool detect_intersection(line_sensor_array readings)
+bool detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
 {
     if (line_sensor_readings.adc_reading[0] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[1] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[2] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[3] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[4] > BLACK_BOUNDARY)
     {
@@ -170,7 +170,7 @@ void maze_solve_task(void *arg)
 
         if (detect_intersection(line_sensor_readings))
         {
-            ESP_LOGI("intersection detected!!!!!!!!")
+            ESP_LOGI("intersection detected!!!!!!!!");
         }
     }
 }
