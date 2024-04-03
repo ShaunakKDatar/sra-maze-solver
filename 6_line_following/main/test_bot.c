@@ -168,9 +168,9 @@ void maze_solve_task(void *arg)
         left_duty_cycle = bound((optimum_duty_cycle + correction), lower_duty_cycle, higher_duty_cycle);
         right_duty_cycle = bound((optimum_duty_cycle - correction), lower_duty_cycle, higher_duty_cycle);
 
-        if (detect_intersection(line_sensor_readings))
+        if (detect_intersection(motor_a_0, motor_a_1, ine_sensor_readings))
         {
-            ESP_LOGI("intersection detected!!!!!!!!");
+            ESP_LOGI_INFO("intersection detected!!!!!!!!");
         }
     }
 }
