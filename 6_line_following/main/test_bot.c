@@ -142,6 +142,10 @@ bool detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, lin
             return true;
         }
     }
+    else
+    {
+        return false;
+    }
 }
 
 void maze_solve_task(void *arg)
@@ -168,9 +172,9 @@ void maze_solve_task(void *arg)
         left_duty_cycle = bound((optimum_duty_cycle + correction), lower_duty_cycle, higher_duty_cycle);
         right_duty_cycle = bound((optimum_duty_cycle - correction), lower_duty_cycle, higher_duty_cycle);
 
-        if (detect_intersection(motor_a_0, motor_a_1, ine_sensor_readings))
+        if (detect_intersection(motor_a_0, motor_a_1, line_sensor_readings))
         {
-            ESP_LOGI_INFO("intersection detected!!!!!!!!");
+            ESP_LOGI("debug", "intersection reached!! YAYYY");
         }
     }
 }
