@@ -126,12 +126,12 @@ void calculate_error()
 
 bool detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
 {
-    if (line_sensor_readings.adc_reading[0] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[1] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[2] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[3] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[4] > BLACK_BOUNDARY)
+    if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[1] > BLACK_BOUNDARY && readings.adc_reading[2] > BLACK_BOUNDARY && readings.adc_reading[3] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY)
     {
         set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);
         set_motor_speed(motor_a_1, MOTOR_FORWARD, right_duty_cycle);
         vTaskDelay(2000 / portTICK_PERIOD_MS);
-        if (line_sensor_readings.adc_reading[0] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[1] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[2] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[3] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[4] > BLACK_BOUNDARY)
+        if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[1] > BLACK_BOUNDARY && readings.adc_reading[2] > BLACK_BOUNDARY && readings.adc_reading[3] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY)
         {
             set_motor_speed(motor_a_0, MOTOR_FORWARD, -left_duty_cycle);
             set_motor_speed(motor_a_1, MOTOR_FORWARD, -right_duty_cycle);
