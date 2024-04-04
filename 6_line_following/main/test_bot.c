@@ -212,6 +212,8 @@ void maze_solve_task(void *arg)
         if (current_state == LEFT_INTERSECTION || current_state == RIGHT_INTERSECTION || current_state == INTERSECTION)
         {
             ESP_LOGI("debug", "intersection reached!! YAYYY");
+            set_motor_speed(motor_a_0, MOTOR_FORWARD, 0);
+            set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);
         }
 
         follow_line(motor_a_0, motor_a_1);
