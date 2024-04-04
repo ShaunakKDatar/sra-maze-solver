@@ -205,9 +205,9 @@ void maze_solve_task(void *arg)
         left_duty_cycle = bound((optimum_duty_cycle + correction), lower_duty_cycle, higher_duty_cycle);
         right_duty_cycle = bound((optimum_duty_cycle - correction), lower_duty_cycle, higher_duty_cycle);
 
-        detect_intersection(motor_a_0, motor_a_1, line_sensor_readings)
+        detect_intersection(motor_a_0, motor_a_1, line_sensor_readings);
 
-            if (current_state == LEFT_INTERSECTION || current_state == RIGHT_INTERSECTION || current_state == INTERSECTION)
+        if (current_state == LEFT_INTERSECTION || current_state == RIGHT_INTERSECTION || current_state == INTERSECTION)
         {
             ESP_LOGI("debug", "intersection reached!! YAYYY");
         }
