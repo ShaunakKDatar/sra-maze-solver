@@ -173,6 +173,8 @@ void detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, lin
     {
         current_state = RIGHT_INTERSECTION;
     }
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
 void follow_line(motor_handle_t motor_a_0, motor_handle_t motor_a_1)
@@ -214,6 +216,8 @@ void maze_solve_task(void *arg)
 
         follow_line(motor_a_0, motor_a_1);
     }
+
+    vTaskDelay(10 / portTICK_PERIOD_MS);
 }
 
 void app_main()
