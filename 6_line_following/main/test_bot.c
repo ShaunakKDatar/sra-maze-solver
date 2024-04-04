@@ -144,23 +144,23 @@ void detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, lin
 
 bool check_after_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
 {
-    set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);
-    set_motor_speed(motor_a_1, MOTOR_FORWARD, right_duty_cycle);
-    vTaskDelay(2000 / portTICK_PERIOD_MS);
-    set_motor_speed(motor_a_0, MOTOR_FORWARD, 0);
-    set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);  // Go ahead for 1 second
+    set_motor_speed(motor_a_1, MOTOR_FORWARD, right_duty_cycle); // GO ahead for 1 second
+    vTaskDelay(1000 / portTICK_PERIOD_MS);                       // Delay
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, 0);                // Stop the bot
+    set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);                // Stop the bot
     vTaskDelay(10 / portTICK_PERIOD_MS);
-    if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY)
+    if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY) // Check if even now the bot reads a white section
     {
-        set_motor_speed(motor_a_0, MOTOR_FORWARD, -left_duty_cycle);
-        set_motor_speed(motor_a_1, MOTOR_FORWARD, -right_duty_cycle);
-        if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY)
+        set_motor_speed(motor_a_0, MOTOR_FORWARD, -left_duty_cycle);                              // Get the bot back to it's original state
+        set_motor_speed(motor_a_1, MOTOR_FORWARD, -right_duty_cycle);                             // Get the bot back to it's original state
+        if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY) // Check if the bot is back to it's original state
         {
-            set_motor_speed(motor_a_0, MOTOR_FORWARD, 0);
-            set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);
+            set_motor_speed(motor_a_0, MOTOR_FORWARD, 0); // Stop the bot there
+            set_motor_speed(motor_a_1, MOTOR_FORWARD, 0); // Stop the bot there
         }
-        current_state = REACHED_GOAL;
-        return false;
+        current_state = REACHED_GOAL; // Change the state to reached goal
+        return false;                 // No intersection detected
     }
     else
     {
@@ -171,7 +171,6 @@ bool check_after_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1
             set_motor_speed(motor_a_0, MOTOR_FORWARD, 0);
             set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);
         }
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
         return true;
     }
 }
@@ -206,7 +205,7 @@ void maze_solve_task(void *arg)
         left_duty_cycle = bound((optimum_duty_cycle + correction), lower_duty_cycle, higher_duty_cycle);
         right_duty_cycle = bound((optimum_duty_cycle - correction), lower_duty_cycle, higher_duty_cycle);
 
-        if (detect_intersection(motor_a_0, motor_a_1, line_sensor_readings))
+        if (current_state == LEFT_INTERSECTION || current_state == RIGHT_INTERSECTION || current_state == INTERSECTION)
         {
             ESP_LOGI("debug", "intersection reached!! YAYYY");
         }
