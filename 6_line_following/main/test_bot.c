@@ -42,8 +42,9 @@ typedef enum
     FOLLOW_LINE,
     TURN_LEFT,
     TURN_RIGHT,
-    DETECT_INTERSECTION,
-    END_OF_MAZE,
+    LEFT_INTERSECTION,
+    RIGHT_INTERSECTION
+        DEAD_END,
     REACHED_GOAL
 } MazeState;
 
@@ -128,24 +129,35 @@ bool detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, lin
 {
     if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[1] > BLACK_BOUNDARY && readings.adc_reading[2] > BLACK_BOUNDARY && readings.adc_reading[3] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY)
     {
-        set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);
-        set_motor_speed(motor_a_1, MOTOR_FORWARD, right_duty_cycle);
-        vTaskDelay(2000 / portTICK_PERIOD_MS);
-        if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[1] > BLACK_BOUNDARY && readings.adc_reading[2] > BLACK_BOUNDARY && readings.adc_reading[3] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY)
-        {
-            set_motor_speed(motor_a_0, MOTOR_FORWARD, -left_duty_cycle);
-            set_motor_speed(motor_a_1, MOTOR_FORWARD, -right_duty_cycle);
-            return false;
-        }
-        else
-        {
-            return true;
-        }
     }
     else
     {
         return false;
     }
+}
+
+bool check_after_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
+{
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);
+    set_motor_speed(motor_a_1, MOTOR_FORWARD, right_duty_cycle);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[1] > BLACK_BOUNDARY && readings.adc_reading[2] > BLACK_BOUNDARY && readings.adc_reading[3] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY)
+    {
+        set_motor_speed(motor_a_0, MOTOR_FORWARD, -left_duty_cycle);
+        set_motor_speed(motor_a_1, MOTOR_FORWARD, -right_duty_cycle);
+        current_state = REACHED_GOAL;
+        return false;
+    }
+    else
+    {
+        return true;
+    }
+}
+
+void follow_line(motor_handle_t motor_a_0, motor_handle_t motor_a_1)
+{
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);
+    set_motor_speed(motor_a_1, MOTOR_FORWARD, right_duty_cycle);
 }
 
 void maze_solve_task(void *arg)
@@ -176,11 +188,18 @@ void maze_solve_task(void *arg)
         {
             ESP_LOGI("debug", "intersection reached!! YAYYY");
         }
+
+        follow_line(motor_a_0, motor_a_1, line_sensor_readings);
     }
 }
+
+// void junction_checker(void *arg)
+// {
+// }
 
 void app_main()
 {
     xTaskCreate(&maze_solve_task, "maze_solve_task", 4096, NULL, 1, NULL);
+    // xTaskCreate(&junction_checker, "junction_checker", 4096, NULL, 1, NULL);
     start_tuning_http_server();
 }
