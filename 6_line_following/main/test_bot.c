@@ -126,22 +126,6 @@ void calculate_error()
     }
 }
 
-void detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
-{
-    if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
-    {
-        current_state = INTERSECTION;
-    }
-    else if (readings.adc_reading[0] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
-    {
-        current_state = LEFT_INTERSECTION;
-    }
-    else if (readings.adc_reading[4] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
-    {
-        current_state = RIGHT_INTERSECTION;
-    }
-}
-
 bool check_after_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
 {
     set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);  // Go ahead for 1 second
@@ -172,6 +156,22 @@ bool check_after_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1
             set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);
         }
         return true;
+    }
+}
+
+void detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
+{
+    if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
+    {
+        current_state = INTERSECTION;
+    }
+    else if (readings.adc_reading[0] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
+    {
+        current_state = LEFT_INTERSECTION;
+    }
+    else if (readings.adc_reading[4] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
+    {
+        current_state = RIGHT_INTERSECTION;
     }
 }
 
@@ -212,13 +212,13 @@ void maze_solve_task(void *arg)
             ESP_LOGI("debug", "intersection reached!! YAYYY");
         }
 
-        follow_line(motor_a_0, motor_a_1, line_sensor_readings);
+        follow_line(motor_a_0, motor_a_1);
     }
 }
 
 void app_main()
 {
     xTaskCreate(&maze_solve_task, "maze_solve_task", 4096, NULL, 1, NULL);
-    xTaskCreate(&junction_checker, "junction_checker", 4096, NULL, 1, NULL);
+
     start_tuning_http_server();
 }
