@@ -9,7 +9,7 @@
 #define WHITE_MARGIN 0    // Change to 0 for white line
 #define bound_LSA_LOW 0
 #define bound_LSA_HIGH 1000
-#define BLACK_BOUNDARY 300 // Boundary value to distinguish between white and black readings
+#define BLACK_BOUNDARY 900 // Boundary value to distinguish between white and black readings
 
 /*
  * weights given to respective line sensor
@@ -35,18 +35,21 @@ float error = 0, prev_error = 0, difference, cumulative_error, correction;
 line_sensor_array line_sensor_readings;
 
 /*
+ * Circular buffer for storing past LSA readings
+ */
+#define BUFFER_SIZE 500 // Adjust buffer size as needed
+line_sensor_array lsa_buffer[BUFFER_SIZE];
+int buffer_index = 0;
+
+/*
  * Maze solving states
  */
 typedef enum
 {
     FOLLOW_LINE,
-    TURN_LEFT,
-    TURN_RIGHT,
-    LEFT_INTERSECTION,
-    RIGHT_INTERSECTION,
     INTERSECTION,
-    DEAD_END,
-    REACHED_GOAL
+    END,
+    GOAL,
 } MazeState;
 
 MazeState current_state = FOLLOW_LINE;
@@ -56,7 +59,9 @@ MazeState current_state = FOLLOW_LINE;
 typedef enum
 {
     LEFT_TURN,
-    RIGHT_TURN
+    RIGHT_TURN,
+    STRAIGHT,
+    DEAD_END,
 } TurnDirection;
 
 typedef struct
@@ -79,37 +84,75 @@ void calculate_correction()
     prev_error = error;
 }
 
+void left_on_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1)
+{
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, optimum_duty_cycle);
+    set_motor_speed(motor_a_1, MOTOR_BACKWARD, optimum_duty_cycle);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, optimum_duty_cycle);
+    set_motor_speed(motor_a_1, MOTOR_FORWARD, optimum_duty_cycle);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    current_state = FOLLOW_LINE;
+}
+
+void right_on_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1)
+{
+    set_motor_speed(motor_a_0, MOTOR_BACKWARD, optimum_duty_cycle);
+    set_motor_speed(motor_a_1, MOTOR_FORWARD, optimum_duty_cycle);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, optimum_duty_cycle);
+    set_motor_speed(motor_a_1, MOTOR_FORWARD, optimum_duty_cycle);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    current_state = FOLLOW_LINE;
+}
+
+void uturn(motor_handle_t motor_a_0, motor_handle_t motor_a_1)
+{
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, optimum_duty_cycle);
+    set_motor_speed(motor_a_1, MOTOR_BACKWARD, optimum_duty_cycle);
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    set_motor_speed(motor_a_0, MOTOR_FORWARD, optimum_duty_cycle);
+    set_motor_speed(motor_a_1, MOTOR_FORWARD, optimum_duty_cycle);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+    current_state = FOLLOW_LINE;
+}
+
 void calculate_error()
 {
-    int all_black_flag = 1; // assuming initially all black condition
+    // Use past LSA readings to calculate error
+    int all_black_flag = 1;
     float weighted_sum = 0, sum = 0;
     float pos = 0;
     int k = 0;
 
-    for (int i = 0; i < 5; i++)
+    // Use readings from the circular buffer
+    for (int j = 0; j < BUFFER_SIZE; j++)
     {
-        if (line_sensor_readings.adc_reading[i] > BLACK_BOUNDARY)
+        for (int i = 0; i < 5; i++)
         {
-            all_black_flag = 0;
+            if (lsa_buffer[j].adc_reading[i] > BLACK_BOUNDARY)
+            {
+                all_black_flag = 0;
+            }
+            if (lsa_buffer[j].adc_reading[i] > BLACK_BOUNDARY)
+            {
+                k = 1;
+            }
+            if (lsa_buffer[j].adc_reading[i] < BLACK_BOUNDARY)
+            {
+                k = 0;
+            }
+            weighted_sum += (float)(weights[i]) * k;
+            sum = sum + k;
         }
-        if (line_sensor_readings.adc_reading[i] > BLACK_BOUNDARY)
-        {
-            k = 1;
-        }
-        if (line_sensor_readings.adc_reading[i] < BLACK_BOUNDARY)
-        {
-            k = 0;
-        }
-        weighted_sum += (float)(weights[i]) * k;
-        sum = sum + k;
     }
 
-    if (sum != 0) // sum can never be 0 but just for safety purposes
+    if (sum != 0)
     {
-        pos = (weighted_sum - 1) / sum; // This will give us the position wrt line. if +ve then bot is facing left and if -ve the bot is facing to right.
+        pos = (weighted_sum - 1) / sum;
     }
 
-    if (all_black_flag == 1) // If all black then we check for previous error to assign current error.
+    if (all_black_flag == 1)
     {
         if (prev_error > 0)
         {
@@ -126,61 +169,41 @@ void calculate_error()
     }
 }
 
-bool check_after_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
-{
-    set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);  // Go ahead for 1 second
-    set_motor_speed(motor_a_1, MOTOR_FORWARD, right_duty_cycle); // GO ahead for 1 second
-    vTaskDelay(1000 / portTICK_PERIOD_MS);                       // Delay
-    set_motor_speed(motor_a_0, MOTOR_FORWARD, 0);                // Stop the bot
-    set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);                // Stop the bot
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-    if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY) // Check if even now the bot reads a white section
-    {
-        set_motor_speed(motor_a_0, MOTOR_FORWARD, -left_duty_cycle);                              // Get the bot back to it's original state
-        set_motor_speed(motor_a_1, MOTOR_FORWARD, -right_duty_cycle);                             // Get the bot back to it's original state
-        if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY) // Check if the bot is back to it's original state
-        {
-            set_motor_speed(motor_a_0, MOTOR_FORWARD, 0); // Stop the bot there
-            set_motor_speed(motor_a_1, MOTOR_FORWARD, 0); // Stop the bot there
-        }
-        current_state = REACHED_GOAL; // Change the state to reached goal
-        return false;                 // No intersection detected
-    }
-    else
-    {
-        set_motor_speed(motor_a_0, MOTOR_FORWARD, -left_duty_cycle);
-        set_motor_speed(motor_a_1, MOTOR_FORWARD, -right_duty_cycle);
-        if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY)
-        {
-            set_motor_speed(motor_a_0, MOTOR_FORWARD, 0);
-            set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);
-        }
-        return true;
-    }
-}
-
-void detect_intersection(motor_handle_t motor_a_0, motor_handle_t motor_a_1, line_sensor_array readings)
-{
-    if (readings.adc_reading[0] > BLACK_BOUNDARY && readings.adc_reading[4] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
-    {
-        current_state = INTERSECTION;
-    }
-    else if (readings.adc_reading[0] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
-    {
-        current_state = LEFT_INTERSECTION;
-    }
-    else if (readings.adc_reading[4] > BLACK_BOUNDARY && check_after_intersection(motor_a_0, motor_a_1, readings))
-    {
-        current_state = RIGHT_INTERSECTION;
-    }
-
-    vTaskDelay(10 / portTICK_PERIOD_MS);
-}
-
 void follow_line(motor_handle_t motor_a_0, motor_handle_t motor_a_1)
 {
     set_motor_speed(motor_a_0, MOTOR_FORWARD, left_duty_cycle);
     set_motor_speed(motor_a_1, MOTOR_FORWARD, right_duty_cycle);
+}
+
+void detect_intersection(line_sensor_array line_sensor_readings)
+{
+    if (current_state == GOAL)
+    {
+        return;
+    }
+    if (line_sensor_readings.adc_reading[0] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[1] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[2] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[3] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[4] > BLACK_BOUNDARY)
+    {
+        current_state = INTERSECTION;
+    }
+    if (line_sensor_readings.adc_reading[0] < BLACK_BOUNDARY && line_sensor_readings.adc_reading[1] < BLACK_BOUNDARY && line_sensor_readings.adc_reading[2] < BLACK_BOUNDARY && line_sensor_readings.adc_reading[3] < BLACK_BOUNDARY && line_sensor_readings.adc_reading[4] < BLACK_BOUNDARY)
+    {
+        current_state = END;
+    }
+}
+
+void goal_test(line_sensor_array line_sensor_readings)
+{
+    if (line_sensor_readings.adc_reading[0] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[1] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[2] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[3] > BLACK_BOUNDARY && line_sensor_readings.adc_reading[4] > BLACK_BOUNDARY)
+    {
+        current_state = GOAL;
+    }
+}
+
+void store_lsa_reading(line_sensor_array current_reading)
+{
+    // Store the current reading in the circular buffer
+    lsa_buffer[buffer_index] = current_reading;
+    buffer_index = (buffer_index + 1) % BUFFER_SIZE;
 }
 
 void maze_solve_task(void *arg)
@@ -190,6 +213,7 @@ void maze_solve_task(void *arg)
     ESP_ERROR_CHECK(enable_motor_driver(&motor_a_1, MOTOR_A_1));
     adc_handle_t line_sensor;
     ESP_ERROR_CHECK(enable_line_sensor(&line_sensor));
+    bool exploration = true;
 
     while (true)
     {
@@ -201,22 +225,55 @@ void maze_solve_task(void *arg)
             line_sensor_readings.adc_reading[i] = 1000 - (line_sensor_readings.adc_reading[i]);
         }
 
+        // Store current LSA reading
+        store_lsa_reading(line_sensor_readings);
+
         calculate_error();
         calculate_correction();
 
         left_duty_cycle = bound((optimum_duty_cycle + correction), lower_duty_cycle, higher_duty_cycle);
         right_duty_cycle = bound((optimum_duty_cycle - correction), lower_duty_cycle, higher_duty_cycle);
 
-        detect_intersection(motor_a_0, motor_a_1, line_sensor_readings);
-
-        if (current_state == LEFT_INTERSECTION || current_state == RIGHT_INTERSECTION || current_state == INTERSECTION)
+        current_state = FOLLOW_LINE;
+        follow_line(motor_a_0, motor_a_1);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        detect_intersection(line_sensor_readings);
+        if (exploration)
         {
-            ESP_LOGI("debug", "intersection reached!! YAYYY");
-            set_motor_speed(motor_a_0, MOTOR_FORWARD, 0);
-            set_motor_speed(motor_a_1, MOTOR_FORWARD, 0);
+            switch (current_state)
+            {
+            case FOLLOW_LINE:
+            {
+                follow_line(motor_a_0, motor_a_1);
+                break;
+            }
+            case INTERSECTION:
+            {
+                left_on_intersection(motor_a_0, motor_a_1);
+                maze_path[maze_path_length].direction = LEFT_TURN;
+                maze_path_length++;
+                break;
+            }
+            case END:
+            {
+                uturn(motor_a_0, motor_a_1);
+                maze_path[maze_path_length].direction = DEAD_END;
+                maze_path_length++;
+                break;
+            }
+            case GOAL:
+            {
+                exploration = false;
+                vTaskDelay(1000 / portTICK_PERIOD_MS);
+            }
+            }
         }
 
-        follow_line(motor_a_0, motor_a_1);
+        if (!exploration)
+        {
+            break;
+        }
+        goal_test(line_sensor_readings);
     }
 
     vTaskDelay(10 / portTICK_PERIOD_MS);
@@ -225,6 +282,5 @@ void maze_solve_task(void *arg)
 void app_main()
 {
     xTaskCreate(&maze_solve_task, "maze_solve_task", 4096, NULL, 1, NULL);
-
     start_tuning_http_server();
 }
