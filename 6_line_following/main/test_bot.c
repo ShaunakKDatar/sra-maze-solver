@@ -10,6 +10,7 @@
 #define bound_LSA_LOW 0
 #define bound_LSA_HIGH 1000
 #define BLACK_BOUNDARY 900 // Boundary value to distinguish between white and black readings
+#define J 100
 
 /*
  * weights given to respective line sensor
@@ -33,6 +34,8 @@ float error = 0, prev_error = 0, difference, cumulative_error, correction;
  * Union containing line sensor readings
  */
 line_sensor_array line_sensor_readings;
+
+float lsa_readings[100][5];
 
 /*
  * Circular buffer for storing past LSA readings
@@ -223,6 +226,12 @@ void maze_solve_task(void *arg)
             line_sensor_readings.adc_reading[i] = bound(line_sensor_readings.adc_reading[i], BLACK_MARGIN, WHITE_MARGIN);
             line_sensor_readings.adc_reading[i] = map(line_sensor_readings.adc_reading[i], BLACK_MARGIN, WHITE_MARGIN, bound_LSA_LOW, bound_LSA_HIGH);
             line_sensor_readings.adc_reading[i] = 1000 - (line_sensor_readings.adc_reading[i]);
+            lsa_readings[J][i] = line_sensor_readings.adc_reading[i];
+        }
+        J--;
+        if (J == 0)
+        {
+            J = 100;
         }
 
         // Store current LSA reading
